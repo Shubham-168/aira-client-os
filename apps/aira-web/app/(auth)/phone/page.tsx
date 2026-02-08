@@ -1,24 +1,41 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { LogOut } from 'lucide-react';
 import { AuthLayout } from '@/components/layout';
-import { PhoneInput, AssistantAvatar } from '@/components/auth';
+import { PhoneInput, AssistantAvatar, OTPInput } from '@/components/auth';
 import { Button } from '@/components/ui/button';
 import { useUpdateUser, useAuthActions, queryClient } from '@repo/core';
 import { webTokenStorage } from '@/lib/api';
 import { ROUTES } from '@/lib/constants';
+import {
+  getDevMockUser,
+  updateDevMockUserPhoneVerified,
+  clearDevMockUser,
+} from '@/lib/dev-mock-auth';
+
+const isDev = process.env.NODE_ENV !== 'production';
 
 export default function PhonePage() {
   const router = useRouter();
   const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [devStep, setDevStep] = useState<'phone' | 'otp'>('phone');
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const { mutate: updateUser, isPending: isUpdating } = useUpdateUser();
   const { logout } = useAuthActions();
 
   const cleanedPhone = phone.replace(/\D/g, '');
   const isValidPhone = cleanedPhone.length >= 8 && cleanedPhone.length <= 15;
+
+  useEffect(() => {
+    if (isDev && getDevMockUser()?.phoneVerified) {
+      router.replace(ROUTES.HUB);
+    }
+  }, [router]);
 
   const formatPhoneNumber = (input: string): string => {
     const cleaned = input.replace(/\D/g, '');
@@ -26,6 +43,25 @@ export default function PhonePage() {
     if (cleaned.length <= 3) return `${cleaned}`;
     const formatted = cleaned.replace(/(\d{3})(?=\d)/g, '$1 ');
     return `${formatted}`;
+  };
+
+  const handleSendOtpDev = () => {
+    if (!isValidPhone || isSendingOtp) return;
+    setIsSendingOtp(true);
+    setTimeout(() => {
+      setIsSendingOtp(false);
+      setDevStep('otp');
+    }, 800);
+  };
+
+  const handleVerifyOtpDev = () => {
+    if (isVerifyingOtp) return;
+    setIsVerifyingOtp(true);
+    updateDevMockUserPhoneVerified(true);
+    setTimeout(() => {
+      setIsVerifyingOtp(false);
+      router.replace(ROUTES.HUB);
+    }, 400);
   };
 
   const handleContinue = async () => {
@@ -37,7 +73,6 @@ export default function PhonePage() {
       { p_n: formattedPhone.replace(/\s+/g, '') },
       {
         onSuccess: () => {
-          // User is now active, redirect to hub
           router.replace(ROUTES.HUB);
         },
         onError: error => {
@@ -48,10 +83,13 @@ export default function PhonePage() {
   };
 
   const handleLogout = async () => {
+    if (isDev) clearDevMockUser();
     await logout(webTokenStorage);
     queryClient.clear();
     router.push(ROUTES.SIGNIN);
   };
+
+  const showDevOtpFlow = isDev && getDevMockUser() !== null;
 
   return (
     <AuthLayout showBrand={false}>
@@ -98,15 +136,45 @@ export default function PhonePage() {
             <AssistantAvatar size="lg" />
           </div>
 
-          {/* Continue Button */}
-          <Button
-            onClick={handleContinue}
-            disabled={!isValidPhone || isUpdating}
-            size="default"
-            className="w-full"
-          >
-            {isUpdating ? 'Verifying...' : 'Continue'}
-          </Button>
+          {showDevOtpFlow ? (
+            <>
+              {devStep === 'phone' ? (
+                <Button
+                  onClick={handleSendOtpDev}
+                  disabled={!isValidPhone || isSendingOtp}
+                  size="default"
+                  className="w-full"
+                >
+                  {isSendingOtp ? 'Sending...' : 'Send OTP'}
+                </Button>
+              ) : (
+                <>
+                  <OTPInput
+                    value={otp}
+                    onChange={setOtp}
+                    onComplete={handleVerifyOtpDev}
+                  />
+                  <Button
+                    onClick={handleVerifyOtpDev}
+                    disabled={isVerifyingOtp}
+                    size="default"
+                    className="w-full"
+                  >
+                    {isVerifyingOtp ? 'Verifying...' : 'Verify OTP'}
+                  </Button>
+                </>
+              )}
+            </>
+          ) : (
+            <Button
+              onClick={handleContinue}
+              disabled={!isValidPhone || isUpdating}
+              size="default"
+              className="w-full"
+            >
+              {isUpdating ? 'Verifying...' : 'Continue'}
+            </Button>
+          )}
 
           {/* Info text */}
           <p className="text-center text-xs text-muted-foreground">

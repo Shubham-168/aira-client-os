@@ -2,16 +2,33 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { AuthLayout } from '@/components/layout';
 import { OAuthButtons } from '@/components/auth/oauth-buttons';
 import { GOOGLE_AUTH_URL } from '@/lib/api';
+import { authStore } from '@repo/core';
+import {
+  setDevMockUser,
+  DEFAULT_DEV_MOCK_USER,
+} from '@/lib/dev-mock-auth';
+import { ROUTES } from '@/lib/constants';
 
 export default function SignInPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[Auth] Dev mode: skipping Google OAuth');
+      authStore.getState().setAuthenticated(true);
+      authStore.getState().setLoading(false);
+      setDevMockUser({ ...DEFAULT_DEV_MOCK_USER, phoneVerified: false });
+      router.replace(ROUTES.PHONE);
+      return;
+    }
 
     // Redirect to Google OAuth URL with web state
     const authUrl = `${GOOGLE_AUTH_URL}?state=auth:web`;

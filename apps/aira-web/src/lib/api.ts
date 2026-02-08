@@ -97,6 +97,27 @@ export async function verifyAuthState(): Promise<User | null> {
     return user;
   } catch (error) {
     console.log('[Auth] Verification failed:', error);
+
+    if (process.env.NODE_ENV !== 'production') {
+      const { getDevMockUser } = await import('./dev-mock-auth');
+      const mock = getDevMockUser();
+      if (mock) {
+        authStore.setState({ isAuthenticated: true, isLoading: false });
+        return {
+          i: mock.id,
+          f_n: 'Dev',
+          l_n: 'User',
+          u: mock.email,
+          c_at: new Date().toISOString(),
+          e: mock.email,
+          is_email_verified: true,
+          is_active: mock.phoneVerified,
+          p_id: null,
+          is_admin: false,
+        } as User;
+      }
+    }
+
     authStore.setState({ isAuthenticated: false, isLoading: false });
     return null;
   }

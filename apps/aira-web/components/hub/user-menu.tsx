@@ -20,7 +20,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useLogout, useDeleteAccount } from '@repo/core';
+import { useLogout, useDeleteAccount, authStore, queryClient } from '@repo/core';
+import { webTokenStorage } from '@/lib/api';
+import { clearAllDevAuthStorage } from '@/lib/dev-mock-auth';
+import { ROUTES } from '@/lib/constants';
 
 interface UserMenuProps {
   userName?: string;
@@ -51,10 +54,19 @@ export function UserMenu({
   }, [logout, router]);
 
   const handleDeleteAccount = useCallback(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      setShowDeleteDialog(false);
+      authStore.getState().clear();
+      clearAllDevAuthStorage();
+      queryClient.clear();
+      webTokenStorage.clear();
+      router.push(ROUTES.SIGNIN);
+      return;
+    }
     deleteAccount(undefined, {
       onSuccess: () => {
         setShowDeleteDialog(false);
-        router.push('/signin');
+        router.push(ROUTES.SIGNIN);
       },
       onError: error => {
         console.error('Delete account failed:', error);

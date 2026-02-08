@@ -14,11 +14,11 @@ import type { CardData, MessageCardData } from '@/components/hub';
 import {
   useApexTasks,
   useSubmitApexTask,
-  useUser,
   useSuggestions,
   useDeleteSuggestion,
   type Suggestion,
 } from '@repo/core';
+import { useEffectiveUser } from '@/hooks';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ROUTES } from '@/lib/constants';
 
@@ -50,8 +50,8 @@ export default function HubPage() {
     Set<string>
   >(new Set());
 
-  // Fetch user data
-  const { data: user } = useUser();
+  // Fetch user data (uses effective user in dev mock mode)
+  const { data: user } = useEffectiveUser();
 
   // Fetch apex tasks
   const { data: apexTasks, isLoading: isLoadingTasks } = useApexTasks();
